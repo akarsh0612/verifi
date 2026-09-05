@@ -1,19 +1,19 @@
-# Chrome Web Store Listing — HealthCheck - Medical Claim Fact-Checker
+# Chrome Web Store Listing — Verifi - Medical Claim Fact-Checker
 
 > Last Updated: 2026-09-05
 
 ## Store Listing
 
 **Extension Name**
-HealthCheck - Medical Claim Fact-Checker
+Verifi - Medical Claim Fact-Checker
 
 **Short Description**
 Detects and fact-checks medical and health claims on any webpage with real-time academic literature citations and in-page highlights.
 
 **Detailed Description**
-HealthCheck helps you evaluate biomedical, nutritional, and medical claims across the web by analyzing page content against verified scientific consensus.
+Verifi helps you evaluate biomedical, nutritional, and medical claims across the web by analyzing page content against verified scientific consensus.
 
-When you click "Fact-Check Page", HealthCheck:
+When you click "Fact-Check Page", Verifi:
 1. Scans visible page text to locate specific medical, pharmacological, or health claims.
 2. Extracts verbatim statements using Groq's high-speed inference engine.
 3. Fact-checks each assertion against biomedical literature using Google Gemini with Google Search grounding.
@@ -23,11 +23,11 @@ When you click "Fact-Check Page", HealthCheck:
 HOW TO USE IT:
 1. Open the extension Options page and provide your Groq and Google Gemini API keys (keys are stored securely in your browser's local storage and never transmitted to any third party).
 2. Visit any news article, blog post, or forum discussing health advice or medical topics.
-3. Click the HealthCheck icon in your browser toolbar and select "Fact-Check Page".
+3. Click the Verifi icon in your browser toolbar and select "Fact-Check Page".
 4. Review the claim counter and hover over any highlighted text on the page to view the scientific consensus and study citations.
 
 PRIVACY & DATA USE:
-HealthCheck does not track your browsing history or collect personally identifiable information. Page text is only sent to your designated Groq and Gemini API endpoints upon explicit user click, and your API keys are stored locally on your device.
+Verifi does not track your browsing history or collect personally identifiable information. Page text is only sent to your designated Groq and Gemini API endpoints upon explicit user click, and your API keys are stored locally on your device.
 
 SUPPORT:
 For questions, feedback, or issues, please visit our GitHub repository or contact support.
