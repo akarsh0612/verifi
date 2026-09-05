@@ -1,0 +1,68 @@
+/*
+ * HealthCheck - Content Script Styles
+ * In-page highlight markers for verified medical claims
+ */
+
+mark.hc-mark {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 1px 2px;
+  margin: 0 1px;
+  text-decoration: none;
+  display: inline;
+  position: relative;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+mark.hc-mark:hover,
+mark.hc-mark.hc-active {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.12);
+  z-index: 10;
+}
+
+/* Verdict: Supported (Green) */
+mark.hc-mark.hc-supported {
+  background-color: rgba(16, 185, 129, 0.28) !important;
+  border-bottom: 2px solid #059669 !important;
+  color: inherit !important;
+}
+
+mark.hc-mark.hc-supported:hover,
+mark.hc-mark.hc-supported.hc-active {
+  background-color: rgba(16, 185, 129, 0.45) !important;
+}
+
+/* Verdict: Refuted (Red) */
+mark.hc-mark.hc-refuted {
+  background-color: rgba(239, 68, 68, 0.26) !important;
+  border-bottom: 2px solid #dc2626 !important;
+  color: inherit !important;
+}
+
+mark.hc-mark.hc-refuted:hover,
+mark.hc-mark.hc-refuted.hc-active {
+  background-color: rgba(239, 68, 68, 0.42) !important;
+}
+
+/* Verdict: Uncertain (Amber) */
+mark.hc-mark.hc-uncertain {
+  background-color: rgba(245, 158, 11, 0.28) !important;
+  border-bottom: 2px solid #d97706 !important;
+  color: inherit !important;
+}
+
+mark.hc-mark.hc-uncertain:hover,
+mark.hc-mark.hc-uncertain.hc-active {
+  background-color: rgba(245, 158, 11, 0.45) !important;
+}
+
+/* Tooltip Host container in DOM */
+#hc-tooltip-host {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+}

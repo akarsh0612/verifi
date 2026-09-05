@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HealthCheck</title>
+  <style>
+    :root {
+      --primary: #0d9488;
+      --primary-hover: #0f766e;
+      --primary-light: #ccfbf1;
+      --bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --supported: #10b981;
+      --refuted: #ef4444;
+      --uncertain: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 360px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.4;
+      min-height: 380px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: #f8fafc;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--primary);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .btn-icon {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+
+    .btn-icon:hover {
+      background: #e2e8f0;
+      color: var(--text);
+    }
+
+    .content {
+      padding: 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Missing Keys Notice */
+    .keys-warning {
+      display: none;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .keys-warning h4 {
+      color: #92400e;
+      font-size: 13px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .keys-warning p {
+      font-size: 12px;
+      color: #78350f;
+      margin-bottom: 8px;
+    }
+
+    .btn-warning {
+      display: inline-block;
+      background: #f59e0b;
+      color: #ffffff;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 4px;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-warning:hover {
+      background: #d97706;
+    }
+
+    /* Action section */
+    .action-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .btn-run {
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.15s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-run:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+
+    .btn-run:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    /* Progress section */
+    .progress-section {
+      display: none;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .progress-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .progress-counts {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--primary);
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-status-text {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Stats summary */
+    .stats-row {
+      display: none;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .stat-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px 4px;
+      border-radius: 6px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+    }
+
+    .stat-val {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .stat-lbl {
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .stat-supported .stat-val { color: var(--supported); }
+    .stat-supported .stat-lbl { color: #065f46; }
+
+    .stat-refuted .stat-val { color: var(--refuted); }
+    .stat-refuted .stat-lbl { color: #991b1b; }
+
+    .stat-uncertain .stat-val { color: var(--uncertain); }
+    .stat-uncertain .stat-lbl { color: #92400e; }
+
+    /* Claims list */
+    .claims-list-section {
+      display: none;
+      flex: 1;
+      max-height: 240px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .claims-list {
+      list-style: none;
+    }
+
+    .claim-item {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: background 0.15s ease;
+    }
+
+    .claim-item:last-child {
+      border-bottom: none;
+    }
+
+    .claim-item:hover {
+      background: #f1f5f9;
+    }
+
+    .claim-item-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .verdict-pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+    }
+
+    .pill-supported { background: #ecfdf5; color: #065f46; }
+    .pill-refuted { background: #fef2f2; color: #991b1b; }
+    .pill-uncertain { background: #fffbeb; color: #92400e; }
+
+    .claim-item-text {
+      font-size: 12px;
+      color: #1e293b;
+      font-weight: 500;
+      line-height: 1.3;
+    }
+
+    .claim-item-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Error Banner */
+    .error-banner {
+      display: none;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    /* Footer */
+    .footer {
+      padding: 8px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      background: #f8fafc;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="brand-icon">✚</div>
+      <div class="brand-title">HealthCheck</div>
+    </div>
+    <button id="openOptionsBtn" class="btn-icon" title="Settings & API Keys">⚙</button>
+  </div>
+
+  <div class="content">
+    <!-- Missing Keys Warning -->
+    <div id="keysWarning" class="keys-warning">
+      <h4><span>⚠️</span> API Keys Required</h4>
+      <p>Configure your Groq and Gemini API keys to scan and fact-check medical claims.</p>
+      <button id="configureKeysBtn" class="btn-warning">Configure Keys</button>
+    </div>
+
+    <!-- Error Banner -->
+    <div id="errorBanner" class="error-banner"></div>
+
+    <!-- Main Action Button -->
+    <div class="action-section">
+      <button id="runScanBtn" class="btn-run">
+        <span>🔍</span>
+        <span id="runBtnText">Fact-Check Page</span>
+      </button>
+    </div>
+
+    <!-- Progress / Loading Display -->
+    <div id="progressSection" class="progress-section">
+      <div class="progress-header">
+        <span class="progress-title" id="progressTitle">Analyzing page...</span>
+        <span class="progress-counts" id="progressCounts">0 / 0</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div id="progressBarFill" class="progress-bar-fill"></div>
+      </div>
+      <div class="progress-status-text" id="progressStatusText">Extracting text...</div>
+    </div>
+
+    <!-- Stats Row -->
+    <div id="statsRow" class="stats-row">
+      <div class="stat-chip stat-supported">
+        <span class="stat-val" id="statSupported">0</span>
+        <span class="stat-lbl">Supported</span>
+      </div>
+      <div class="stat-chip stat-refuted">
+        <span class="stat-val" id="statRefuted">0</span>
+        <span class="stat-lbl">Refuted</span>
+      </div>
+      <div class="stat-chip stat-uncertain">
+        <span class="stat-val" id="statUncertain">0</span>
+        <span class="stat-lbl">Uncertain</span>
+      </div>
+    </div>
+
+    <!-- Found Claims List -->
+    <div id="claimsListSection" class="claims-list-section">
+      <ul id="claimsList" class="claims-list"></ul>
+    </div>
+  </div>
+
+  <div class="footer">
+    Powered by Groq &amp; Gemini with Google Search grounding
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
