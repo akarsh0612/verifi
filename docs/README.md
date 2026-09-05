@@ -1,6 +1,6 @@
-# HealthCheck — Medical Claim Fact-Checker (Chrome Extension MV3)
+# Verifi — Medical Claim Fact-Checker (Chrome Extension MV3)
 
-HealthCheck is an AI-powered Google Chrome extension (Manifest V3) that extracts and fact-checks health and medical claims on any webpage in real time. It highlights claims in-place and renders an interactive hover tooltip displaying scientific consensus, explanations, and rich academic paper preview cards with citations from PubMed, Crossref, and Semantic Scholar.
+Verifi is an AI-powered Google Chrome extension (Manifest V3) that extracts and fact-checks health and medical claims on any webpage in real time. It highlights claims in-place and renders an interactive hover tooltip displaying scientific consensus, explanations, and rich academic paper preview cards with citations from PubMed, Crossref, and Semantic Scholar.
 
 ---
 
@@ -22,7 +22,7 @@ HealthCheck is an AI-powered Google Chrome extension (Manifest V3) that extracts
 ## Project Structure
 
 ```
-healthcheck/
+verifi/
 ├── manifest.json         # Chrome MV3 manifest
 ├── background.js        # Service worker orchestrating Groq, Gemini & citation APIs
 ├── content.js           # Text extraction, TreeWalker DOM highlighter & Shadow DOM tooltip
@@ -51,12 +51,12 @@ healthcheck/
 3. Click **Load unpacked**.
 4. Select the directory:
    ```
-   C:\Users\USER\.gemini\antigravity\scratch\healthcheck
+   C:\Users\USER\.gemini\antigravity\scratch\verifi
    ```
-5. The **HealthCheck** extension icon will now appear in your browser toolbar.
+5. The **Verifi** extension icon will now appear in your browser toolbar.
 
 ### 2. Configure API Keys
-1. Right-click the **HealthCheck** toolbar icon and click **Options** (or click the gear ⚙ icon in the popup).
+1. Right-click the **Verifi** toolbar icon and click **Options** (or click the gear ⚙ icon in the popup).
 2. Enter your:
    - **Groq API Key**: Obtain from [console.groq.com/keys](https://console.groq.com/keys)
    - **Gemini API Key**: Obtain from [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
@@ -64,8 +64,8 @@ healthcheck/
 
 ### 3. Test with the Built-in Test Page
 1. Open the included sample file `test-page.html` in Chrome:
-   - File URL: `file:///C:/Users/USER/.gemini/antigravity/scratch/healthcheck/test-page.html`
-2. Click the **HealthCheck** icon in the toolbar.
+   - File URL: `file:///C:/Users/USER/.gemini/antigravity/scratch/verifi/test-page.html`
+2. Click the **Verifi** icon in the toolbar.
 3. Click **Fact-Check Page**.
 4. Watch the progress bar update as claims are extracted and checked.
 5. Notice the highlighted claims on the page:
