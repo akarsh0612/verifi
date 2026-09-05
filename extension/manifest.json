@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "HealthCheck - Medical Claim Fact-Checker",
+  "name": "Verifi - Medical Claim Fact-Checker",
   "version": "1.0.0",
   "description": "Finds and fact-checks medical and health claims on any webpage using Groq and Gemini with Google Search grounding.",
   "permissions": [
@@ -20,7 +20,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "HealthCheck Fact-Checker",
+    "default_title": "Verifi Fact-Checker",
     "default_icon": {
       "16": "icons/icon-16.png",
       "48": "icons/icon-48.png",
