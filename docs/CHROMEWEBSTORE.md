@@ -1,6 +1,6 @@
 # Chrome Web Store Listing — Verifi - Medical Claim Fact-Checker
 
-> Last Updated: 2026-09-05
+> Last Updated: 2026-09-06
 
 ## Store Listing
 
@@ -21,13 +21,13 @@ When you click "Fact-Check Page", Verifi:
 5. Displays rich academic preview cards on hover with study titles, authors, journals, publication years, and abstract snippets from PubMed, Crossref, and Semantic Scholar.
 
 HOW TO USE IT:
-1. Open the extension Options page and provide your Groq and Google Gemini API keys (keys are stored securely in your browser's local storage and never transmitted to any third party).
+1. Configure your Groq and Google Gemini API keys (keys are stored securely on your device and never transmitted to any unauthorized third party).
 2. Visit any news article, blog post, or forum discussing health advice or medical topics.
 3. Click the Verifi icon in your browser toolbar and select "Fact-Check Page".
 4. Review the claim counter and hover over any highlighted text on the page to view the scientific consensus and study citations.
 
 PRIVACY & DATA USE:
-Verifi does not track your browsing history or collect personally identifiable information. Page text is only sent to your designated Groq and Gemini API endpoints upon explicit user click, and your API keys are stored locally on your device.
+Verifi does not track your browsing history or collect personally identifiable information. Page text is only sent to your designated Groq and Gemini API endpoints upon explicit user click, and your credentials remain private on your machine.
 
 SUPPORT:
 For questions, feedback, or issues, please visit our GitHub repository or contact support.
@@ -47,12 +47,12 @@ English
 
 | Asset | Dimensions | Status | Filename |
 |-------|-----------|--------|----------|
-| Store Icon [REQUIRED] | 128×128 PNG | ✅ Ready | `icons/icon-128.png` |
-| Small Icon | 16×16 PNG | ✅ Ready | `icons/icon-16.png` |
-| Medium Icon | 48×48 PNG | ✅ Ready | `icons/icon-48.png` |
+| Store Icon [REQUIRED] | 128×128 PNG | ✅ Ready | `extension/icons/icon-128.png` |
+| Small Icon | 16×16 PNG | ✅ Ready | `extension/icons/icon-16.png` |
+| Medium Icon | 48×48 PNG | ✅ Ready | `extension/icons/icon-48.png` |
 | Screenshot 1 [REQUIRED] | 1280×800 | ⬜ To capture | In-page highlights and tooltip on article |
 | Screenshot 2 [RECOMMENDED] | 1280×800 | ⬜ To capture | Extension popup with progress and stats |
-| Screenshot 3 [RECOMMENDED] | 1280×800 | ⬜ To capture | Options page with secure API key setup |
+| Screenshot 3 [RECOMMENDED] | 1280×800 | ⬜ To capture | Options page with secure configuration setup |
 
 ---
 
@@ -62,7 +62,7 @@ English
 |------------|------|---------------|
 | `activeTab` | permissions | Required to read visible article text and highlight claims on the currently active tab when the user clicks "Fact-Check Page". |
 | `scripting` | permissions | Required to inject the content highlighter script (`content.js`) and highlight styling (`content.css`) into the active tab on user invocation. |
-| `storage` | permissions | Required to persist user API keys (Groq and Gemini) and save per-tab fact-checking results across popup sessions. |
+| `storage` | permissions | Required to persist user configuration options (search grounding toggle, pacing delays, batch size) and save per-tab fact-checking results across popup sessions. |
 | `https://api.groq.com/*` | host_permissions | Required to communicate with Groq chat completions API for high-speed biomedical claim extraction. |
 | `https://generativelanguage.googleapis.com/*` | host_permissions | Required to communicate with Google Gemini API with Google Search grounding tool to fact-check claims against authoritative sources. |
 | `https://eutils.ncbi.nlm.nih.gov/*` | host_permissions | Required to fetch paper metadata and abstract snippets from PubMed E-utilities for scientific citation cards. |
@@ -82,7 +82,7 @@ English
 | Personally identifiable info | No | No | N/A | No |
 | Health info | No | No | N/A | No |
 | Financial info | No | No | N/A | No |
-| Authentication info | No | No | Keys stored in local storage only | No |
+| Authentication info | No | No | Credentials stored securely in local configuration only | No |
 | Personal communications | No | No | N/A | No |
 | Location | No | No | N/A | No |
 | Web history | No | No | N/A | No |
@@ -100,4 +100,4 @@ English
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
-| 1.0.0 | 2026-09-05 | Initial release with Groq claim extraction, Gemini Search grounding, multi-node TreeWalker highlighter, and rich academic citation preview cards. | Draft |
+| 1.0.0 | 2026-09-06 | Initial release with Groq claim extraction, Gemini Search grounding, multi-node TreeWalker highlighter, and rich academic citation preview cards. | Draft |

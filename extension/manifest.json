@@ -9,11 +9,22 @@
     "storage"
   ],
   "host_permissions": [
+    "http://*/*",
+    "https://*/*",
+    "file:///*",
     "https://api.groq.com/*",
     "https://generativelanguage.googleapis.com/*",
     "https://eutils.ncbi.nlm.nih.gov/*",
     "https://api.semanticscholar.org/*",
     "https://api.crossref.org/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*", "file:///*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
   ],
   "background": {
     "service_worker": "background.js"

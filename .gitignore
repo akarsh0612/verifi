@@ -1,0 +1,22 @@
+# API Keys & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Extension compiled runtime config (contains API keys)
+extension/config.js
+
+# Extension local configs
+extension/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Operating System & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

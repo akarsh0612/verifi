@@ -1,16 +1,101 @@
 /**
- * HealthCheck - Background Service Worker (Manifest V3)
+ * Verifi - Background Service Worker (Manifest V3)
  * Orchestrates Groq claim extraction, Gemini fact-checking with Google Search grounding,
  * concurrency queueing, retry handling, and academic paper metadata resolution.
  */
 
+try {
+  importScripts('config.js');
+} catch (err) {
+  console.warn('[Verifi] config.js could not be loaded:', err);
+}
+
 // Default models
-const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-20b';
-const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
+const DEFAULT_GROQ_MODEL = 'groq/compound-mini';
+const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
+const GEMINI_FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.7-flash'];
 const CONCURRENCY_LIMIT = 2;
 
 // In-memory citation cache (persists while service worker is active)
 const citationCache = new Map();
+
+/**
+ * Parses retry delay in seconds from error messages (e.g. "Please try again in 11.8s" or "retry in 5s")
+ */
+function parseRetryDelay(errText, defaultMs = 12000) {
+  if (typeof errText === 'string') {
+    const match = errText.match(/(?:try again in|retry in)\s*([0-9.]+)s/i);
+    if (match && match[1]) {
+      const sec = parseFloat(match[1]);
+      if (!isNaN(sec) && sec > 0) {
+        return Math.ceil(sec * 1000) + 1000; // Add 1s safety buffer
+      }
+    }
+  }
+  return defaultMs;
+}
+
+/**
+ * Resolves configuration:
+ * - API keys and models are loaded STRICTLY and EXCLUSIVELY from .env (via CONFIG).
+ * - User options (enableSearchGrounding, pacingDelay, batchSize) are read from chrome.storage.local.
+ */
+async function getResolvedConfig() {
+  const envConfig = (typeof CONFIG !== 'undefined' ? CONFIG : {});
+
+  // Clean up any lingering API keys from storage so they are never used
+  try {
+    await chrome.storage.local.remove(['groqApiKey', 'geminiApiKey', 'groqModel', 'geminiModel']);
+  } catch (_) {}
+
+  // API keys and models come directly and purely from .env (config.js)
+  const groqApiKey = (envConfig.GROQ_API_KEY || '').trim();
+  const geminiApiKey = (envConfig.GEMINI_API_KEY || '').trim();
+  const groqModel = (envConfig.GROQ_MODEL || DEFAULT_GROQ_MODEL).trim();
+  const geminiModel = (envConfig.GEMINI_MODEL || DEFAULT_GEMINI_MODEL).trim();
+
+  // User-configurable options from Options page
+  const stored = await chrome.storage.local.get([
+    'enableSearchGrounding',
+    'pacingDelay',
+    'batchSize'
+  ]);
+
+  const enableSearchGrounding = typeof stored.enableSearchGrounding === 'boolean'
+    ? stored.enableSearchGrounding
+    : (typeof envConfig.ENABLE_SEARCH_GROUNDING === 'boolean' ? envConfig.ENABLE_SEARCH_GROUNDING : true);
+  const pacingDelay = parseInt(stored.pacingDelay, 10)
+    || envConfig.PACING_DELAY
+    || 6000;
+  const batchSize = parseInt(stored.batchSize, 10)
+    || envConfig.BATCH_SIZE
+    || 8;
+
+  return {
+    groqApiKey,
+    geminiApiKey,
+    groqModel,
+    geminiModel,
+    enableSearchGrounding,
+    pacingDelay,
+    batchSize
+  };
+}
+
+async function purgeLegacyStorageKeys() {
+  try {
+    await chrome.storage.local.remove(['groqApiKey', 'geminiApiKey', 'groqModel', 'geminiModel']);
+  } catch (err) {
+    console.warn('[Verifi] Could not clean legacy storage keys:', err);
+  }
+}
+
+chrome.runtime.onInstalled?.addListener(() => {
+  purgeLegacyStorageKeys();
+});
+chrome.runtime.onStartup?.addListener(() => {
+  purgeLegacyStorageKeys();
+});
 
 /**
  * Message Listener
@@ -20,13 +105,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       switch (message.type) {
         case 'CHECK_STATUS': {
-          const { groqApiKey, geminiApiKey } = await chrome.storage.local.get([
-            'groqApiKey',
-            'geminiApiKey'
-          ]);
+          const config = await getResolvedConfig();
           sendResponse({
-            hasGroqKey: Boolean(groqApiKey?.trim()),
-            hasGeminiKey: Boolean(geminiApiKey?.trim())
+            hasGroqKey: Boolean(config.groqApiKey?.trim()),
+            hasGeminiKey: Boolean(config.geminiApiKey?.trim())
           });
           break;
         }
@@ -55,8 +137,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ error: `Unknown message type: ${message.type}` });
       }
     } catch (err) {
-      console.error('[HealthCheck SW Error]', err);
-      sendResponse({ error: err.message || 'An unexpected error occurred in background script.' });
+      console.error('[Verifi SW Error]', err);
+      let errMsg = err.message || 'An unexpected error occurred in background script.';
+      if (errMsg.includes('Failed to fetch')) {
+        errMsg = 'Network connection error: Failed to reach the API server. Please check your internet connection or API settings.';
+      }
+      sendResponse({ error: errMsg });
     }
   })();
   return true; // Keep channel open for async response
@@ -70,23 +156,22 @@ function getTabKey(tabId) {
  * Main Scan Orchestrator
  */
 async function handleScanRequest(tabId) {
+  const config = await getResolvedConfig();
   const {
     groqApiKey,
     geminiApiKey,
     groqModel = DEFAULT_GROQ_MODEL,
-    geminiModel = DEFAULT_GEMINI_MODEL
-  } = await chrome.storage.local.get([
-    'groqApiKey',
-    'geminiApiKey',
-    'groqModel',
-    'geminiModel'
-  ]);
+    geminiModel = DEFAULT_GEMINI_MODEL,
+    enableSearchGrounding = true,
+    pacingDelay = 6000,
+    batchSize = 8
+  } = config;
 
   if (!groqApiKey?.trim()) {
-    throw new Error('Groq API Key is missing. Please set it in HealthCheck Options.');
+    throw new Error('Groq API Key is missing. Please set it in .env or Verifi Settings.');
   }
   if (!geminiApiKey?.trim()) {
-    throw new Error('Gemini API Key is missing. Please set it in HealthCheck Options.');
+    throw new Error('Gemini API Key is missing. Please set it in .env or Verifi Settings.');
   }
 
   // Ensure content script and styles are injected
@@ -106,13 +191,49 @@ async function handleScanRequest(tabId) {
     throw new Error('No sufficient readable text found on this page.');
   }
 
-  // 2. Call Groq to extract medical claims
+  // 2. Extract medical claims (Groq-first with automatic Gemini fallback)
   notifyPopup(tabId, {
     state: 'analyzing',
-    message: 'Analyzing text for medical claims with Groq...'
+    message: 'Analyzing text for medical claims...'
   });
 
-  const claims = await extractClaimsWithGroq(pageTextData.text, groqApiKey.trim(), groqModel.trim() || DEFAULT_GROQ_MODEL);
+  let claims = [];
+  let extractionError = null;
+  let groqAttempted = false;
+
+  if (groqApiKey && groqApiKey.trim()) {
+    groqAttempted = true;
+    try {
+      notifyPopup(tabId, {
+        state: 'analyzing',
+        message: 'Extracting claims with Groq...'
+      });
+      claims = await extractClaimsWithGroq(pageTextData.text, groqApiKey.trim(), groqModel.trim() || DEFAULT_GROQ_MODEL);
+    } catch (groqErr) {
+      console.warn('[Verifi] Groq claim extraction failed, falling back to Gemini:', groqErr);
+      extractionError = groqErr;
+    }
+  }
+
+  // Fallback to Gemini only if Groq was not configured OR if Groq encountered an error during extraction
+  if ((!groqAttempted || extractionError) && geminiApiKey && geminiApiKey.trim()) {
+    try {
+      notifyPopup(tabId, {
+        state: 'analyzing',
+        message: extractionError ? 'Groq failed, extracting claims with Gemini...' : 'Extracting claims with Gemini...'
+      });
+      claims = await extractClaimsWithGemini(pageTextData.text, geminiApiKey.trim(), geminiModel.trim() || DEFAULT_GEMINI_MODEL, tabId);
+      extractionError = null;
+    } catch (geminiErr) {
+      console.error('[Verifi] Gemini extraction fallback failed:', geminiErr);
+      if (extractionError) {
+        throw new Error(`Claim extraction failed (Groq: ${extractionError.message}, Gemini: ${geminiErr.message})`);
+      }
+      throw geminiErr;
+    }
+  } else if (extractionError) {
+    throw extractionError;
+  }
 
   if (!claims || claims.length === 0) {
     const emptyResult = {
@@ -147,16 +268,9 @@ async function handleScanRequest(tabId) {
 
   // 3. Batched verification via Gemini to minimize API requests and avoid 429 quota exhaustion
   let activeModel = (geminiModel?.trim() || DEFAULT_GEMINI_MODEL);
-  if (activeModel.includes('2.0')) {
+  if (activeModel.includes('2.0') || activeModel.includes('2.5-flash') || activeModel === 'gemini-3.6-flash') {
     activeModel = DEFAULT_GEMINI_MODEL;
-    await chrome.storage.local.set({ geminiModel: DEFAULT_GEMINI_MODEL });
   }
-
-  const {
-    enableSearchGrounding = true,
-    pacingDelay = 6000,
-    batchSize = 8
-  } = await chrome.storage.local.get(['enableSearchGrounding', 'pacingDelay', 'batchSize']);
 
   // Chunk claims into larger batches (default 8) to reduce total requests down to 1-2 calls per page
   const parsedBatchSize = Math.max(1, parseInt(batchSize, 10) || 8);
@@ -252,18 +366,26 @@ async function ensureContentScriptInjected(tabId) {
     const pong = await chrome.tabs.sendMessage(tabId, { type: 'PING' });
     if (pong && pong.status === 'ok') return;
   } catch (_) {
-    // Script not present, proceed to inject
+    // Script not responding, proceed to inject
   }
 
-  await chrome.scripting.insertCSS({
-    target: { tabId },
-    files: ['content.css']
-  });
+  try {
+    await chrome.scripting.insertCSS({
+      target: { tabId },
+      files: ['content.css']
+    });
+  } catch (cssErr) {
+    console.warn('[Verifi] CSS injection notice:', cssErr.message);
+  }
 
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    files: ['content.js']
-  });
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['content.js']
+    });
+  } catch (jsErr) {
+    console.warn('[Verifi] Script injection notice:', jsErr.message);
+  }
 }
 
 /**
@@ -280,11 +402,11 @@ function notifyPopup(tabId, payload) {
 }
 
 /**
- * Extract claims using Groq chat completions
+ * Extract claims using Groq chat completions (with auto-retry)
  */
-async function extractClaimsWithGroq(text, apiKey, model) {
-  // Truncate to reasonable context window (~16,000 characters)
-  const truncatedText = text.slice(0, 16000);
+async function extractClaimsWithGroq(text, apiKey, model, retryCount = 0) {
+  // Truncate to reasonable context window (~12,000 characters) to preserve token quota
+  const truncatedText = text.slice(0, 12000);
 
   const systemPrompt = `You are a strict biomedical information extraction engine.
 Your task is to identify and extract medical, health, nutritional, therapeutic, pharmacological, and physiological claims from the text.
@@ -312,22 +434,31 @@ You MUST respond with valid JSON matching:
 }
 If no health or medical claims are found, return: { "claims": [] }`;
 
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: model,
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Extract all medical and health claims from this webpage text:\n\n${truncatedText}` }
-      ]
-    })
-  });
+  let response;
+  try {
+    response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model,
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Extract all medical and health claims from this webpage text:\n\n${truncatedText}` }
+        ]
+      })
+    });
+  } catch (netErr) {
+    if (retryCount < 1) {
+      await new Promise((r) => setTimeout(r, 1500));
+      return extractClaimsWithGroq(text, apiKey, model, retryCount + 1);
+    }
+    throw netErr;
+  }
 
   if (!response.ok) {
     let errorDetails = '';
@@ -337,6 +468,21 @@ If no health or medical claims are found, return: { "claims": [] }`;
     } catch (_) {
       errorDetails = response.statusText;
     }
+
+    // If rate limit (429) is hit on a low-quota model (e.g. openai/gpt-oss-20b), immediately switch to high-quota groq/compound-mini
+    if (response.status === 429 && model !== 'groq/compound-mini' && retryCount < 2) {
+      console.warn(`[Verifi] Groq model ${model} rate-limited (429). Retrying with high-quota groq/compound-mini...`);
+      return extractClaimsWithGroq(text, apiKey, 'groq/compound-mini', retryCount + 1);
+    }
+
+    // If rate limited on compound-mini, respect retry delay if brief
+    if (response.status === 429 && retryCount < 1) {
+      const waitMs = parseRetryDelay(errorDetails, 2500);
+      console.warn(`[Verifi] Groq rate-limited. Retrying in ${waitMs}ms...`);
+      await new Promise((r) => setTimeout(r, waitMs));
+      return extractClaimsWithGroq(text, apiKey, model, retryCount + 1);
+    }
+
     throw new Error(`Groq API Error (${response.status}): ${errorDetails}`);
   }
 
@@ -355,6 +501,114 @@ If no health or medical claims are found, return: { "claims": [] }`;
     return [];
   } catch (err) {
     console.error('Failed to parse Groq JSON output:', content);
+    return [];
+  }
+}
+
+/**
+ * Fallback claim extraction using Google Gemini (with 429 rate limit backoff)
+ */
+async function extractClaimsWithGemini(text, apiKey, model, tabId = null, retryCount = 0) {
+  const truncatedText = text.slice(0, 16000);
+
+  const prompt = `You are a strict biomedical information extraction engine.
+Your task is to identify and extract medical, health, nutritional, therapeutic, pharmacological, and physiological claims from the text.
+
+CRITICAL EXTRACTION RULES:
+1. Extract ONLY objective assertions of medical/health fact (e.g. disease etiology, clinical treatments, drug efficacy, herbal remedies, physiological mechanisms, vaccine safety, dietary impacts, health risks).
+2. Completely IGNORE personal opinions, subjective stories, questions, speculations, or non-medical statements.
+3. EXACT VERBATIM MATCH REQUIRED:
+   - For every claim, you MUST copy the EXACT, UNMODIFIED substring from the provided text as 'verbatim_text'.
+   - Do NOT rephrase, correct spelling, or change punctuation in 'verbatim_text'. It MUST match character-for-character so it can be located in the webpage DOM.
+4. Provide a 'normalized_claim': A concise, factual 1-sentence statement of the core health assertion.
+
+OUTPUT FORMAT:
+You MUST respond with a STRICT valid JSON object matching:
+{
+  "claims": [
+    {
+      "verbatim_text": "Exact substring as it appears in the text",
+      "normalized_claim": "Concise normalized claim statement"
+    }
+  ]
+}
+If no health or medical claims are found, return: { "claims": [] }
+
+Text to analyze:
+${truncatedText}`;
+
+  const cleanModel = (model || DEFAULT_GEMINI_MODEL).replace('models/', '');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cleanModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.1
+        }
+      })
+    });
+  } catch (netErr) {
+    if (retryCount < 2) {
+      await new Promise((r) => setTimeout(r, 2000));
+      return extractClaimsWithGemini(text, apiKey, model, tabId, retryCount + 1);
+    }
+    throw new Error(`Network error contacting Gemini: ${netErr.message}`);
+  }
+
+  if (!response.ok) {
+    let errorDetails = '';
+    try {
+      const errJson = await response.json();
+      errorDetails = errJson?.error?.message || response.statusText;
+    } catch (_) {
+      errorDetails = response.statusText;
+    }
+
+    if (response.status === 429 && retryCount < 2) {
+      const cleanModel = (model || '').replace('models/', '');
+      const altModel = GEMINI_FALLBACK_MODELS.find((m) => m !== cleanModel);
+      if (altModel) {
+        console.warn(`[Verifi] Gemini model ${cleanModel} quota reached (429) during extraction. Falling back to ${altModel}...`);
+        return extractClaimsWithGemini(text, apiKey, altModel, tabId, retryCount + 1);
+      }
+      const waitMs = parseRetryDelay(errorDetails, 6000);
+      console.warn(`[Verifi] Gemini 429 rate limit hit during claim extraction. Waiting ${Math.round(waitMs / 1000)}s before retry #${retryCount + 1}...`);
+      if (tabId) {
+        notifyPopup(tabId, {
+          state: 'analyzing',
+          message: `Gemini quota cooldown: waiting ${Math.round(waitMs / 1000)}s before retry...`
+        });
+      }
+      await new Promise((r) => setTimeout(r, waitMs));
+      return extractClaimsWithGemini(text, apiKey, model, tabId, retryCount + 1);
+    }
+
+    throw new Error(`Gemini Extraction Error (${response.status}): ${errorDetails}`);
+  }
+
+  const data = await response.json();
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawText) return [];
+
+  try {
+    const parsed = JSON.parse(rawText);
+    if (Array.isArray(parsed.claims)) {
+      return parsed.claims.filter(
+        (c) => c && typeof c.verbatim_text === 'string' && c.verbatim_text.trim().length > 5
+      );
+    }
+    return [];
+  } catch (err) {
+    console.error('[Verifi] Failed to parse Gemini JSON claims:', rawText);
     return [];
   }
 }
@@ -430,21 +684,36 @@ Verdict criteria:
     throw new Error(`Network error contacting Gemini: ${netErr.message}`);
   }
 
-  // Handle Rate Limit (HTTP 429) with progressive backoff & search tool fallback
+  // Handle Rate Limit (HTTP 429) with progressive backoff, model fallback & search tool decoupling
   if (response.status === 429) {
-    if (retryCount < 2) {
-      const waitMs = (retryCount + 1) * 6000;
-      console.warn(`[HealthCheck] Gemini 429 hit. Backing off for ${waitMs}ms (retry #${retryCount + 1})...`);
-      await new Promise((r) => setTimeout(r, waitMs));
-      // On retry, disable search tool to bypass search-grounding quota limits
-      return verifyBatchWithGemini(claims, apiKey, model, false, retryCount + 1);
-    }
-
     let errMsg = 'Gemini quota/rate limit exceeded (429).';
     try {
       const errData = await response.json();
       errMsg = errData.error?.message || errMsg;
     } catch (_) {}
+
+    // 1. If Google Search Grounding was enabled, it is often the culprit for 429 on free tier.
+    // Immediately retry without search tools so Gemini can evaluate using its internal biomedical knowledge.
+    if (enableSearch) {
+      console.warn('[Verifi] Gemini Search Grounding quota hit (429). Retrying immediately with internal biomedical knowledge...');
+      return verifyBatchWithGemini(claims, apiKey, model, false, retryCount);
+    }
+
+    // 2. If the current model is out of daily quota (e.g. 20/day limit on gemini-3.6-flash), try an alternative model
+    const cleanModel = (model || '').replace('models/', '');
+    const altModel = GEMINI_FALLBACK_MODELS.find((m) => m !== cleanModel);
+    if (altModel && retryCount < 2) {
+      console.warn(`[Verifi] Gemini model ${cleanModel} quota reached (429). Automatically falling back to ${altModel}...`);
+      return verifyBatchWithGemini(claims, apiKey, altModel, false, retryCount + 1);
+    }
+
+    // 3. Transient rate limit / concurrency pacing: Back off and retry
+    if (retryCount < 3) {
+      const waitMs = parseRetryDelay(errMsg, (retryCount + 1) * 4000);
+      console.warn(`[Verifi] Gemini 429 hit. Backing off for ${Math.round(waitMs / 1000)}s (retry #${retryCount + 1})...`);
+      await new Promise((r) => setTimeout(r, waitMs));
+      return verifyBatchWithGemini(claims, apiKey, model, false, retryCount + 1);
+    }
 
     return claims.map((c) => ({
       ...c,

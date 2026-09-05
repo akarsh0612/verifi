@@ -210,6 +210,70 @@
       display: inline-block;
       margin-left: 6px;
     }
+
+    .badge-env {
+      font-size: 11px;
+      color: #0369a1;
+      background: #f0f9ff;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #bae6fd;
+      display: inline-block;
+      margin-left: 6px;
+    }
+
+    .env-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+    }
+
+    .env-banner-text strong {
+      display: block;
+      font-size: 13px;
+      color: #166534;
+      margin-bottom: 2px;
+    }
+
+    .env-banner-text span {
+      font-size: 12px;
+      color: #15803d;
+    }
+
+    .env-banner-text code {
+      background: #dcfce7;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 11px;
+    }
+
+    .btn-outline {
+      background: #ffffff;
+      color: #166534;
+      border: 1px solid #86efac;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-outline:hover {
+      background: #dcfce7;
+      border-color: #4ade80;
+    }
   </style>
 </head>
 <body>
@@ -217,69 +281,54 @@
     <div class="header">
       <div class="logo">✚</div>
       <div class="title-area">
-        <h1>Verifi Configuration</h1>
-        <p>Set up your Groq and Gemini API keys to enable medical claim fact-checking.</p>
+        <h1>Verifi Settings</h1>
+        <p>Manage fact-checking performance, grounding, and view .env configuration.</p>
       </div>
     </div>
 
     <div id="statusAlert" class="alert"></div>
 
-    <form id="settingsForm">
-      <!-- Groq Configuration -->
-      <div class="section">
-        <div class="section-title">
-          <span>⚡ Groq Claim Extractor</span>
-          <span class="badge-secure">Local Storage Only</span>
-        </div>
-
-        <div class="form-group">
-          <label for="groqApiKey">Groq API Key</label>
-          <div class="input-wrapper">
-            <input type="password" id="groqApiKey" placeholder="gsk_..." autocomplete="off">
-            <button type="button" class="toggle-visibility" data-target="groqApiKey" title="Show / Hide Key">👁</button>
-          </div>
-          <p class="hint">
-            Get your key from <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>.
-          </p>
-        </div>
-
-        <div class="form-group">
-          <label for="groqModel">Groq Model</label>
-          <input type="text" id="groqModel" value="openai/gpt-oss-20b" placeholder="openai/gpt-oss-20b">
-          <p class="hint">Default: <code>openai/gpt-oss-20b</code>.</p>
-        </div>
+    <!-- API Keys Status (Strictly from .env) -->
+    <div class="section">
+      <div class="section-title">
+        <span>🔑 API Keys &amp; Models</span>
+        <span class="badge-env">Loaded from .env</span>
       </div>
 
-      <!-- Gemini Configuration -->
+      <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 12px;">
+        <div style="display: grid; grid-template-columns: 140px 1fr; gap: 10px 14px; font-size: 13px; align-items: center;">
+          <span style="color: var(--text-muted); font-weight: 600;">Groq API Key:</span>
+          <span id="groqStatus"><code>Checking...</code></span>
+
+          <span style="color: var(--text-muted); font-weight: 600;">Groq Model:</span>
+          <span id="groqModelDisplay"><code>groq/compound-mini</code></span>
+
+          <span style="color: var(--text-muted); font-weight: 600;">Gemini API Key:</span>
+          <span id="geminiStatus"><code>Checking...</code></span>
+
+          <span style="color: var(--text-muted); font-weight: 600;">Gemini Model:</span>
+          <span id="geminiModelDisplay"><code>gemini-3.5-flash</code></span>
+        </div>
+      </div>
+      <p class="hint">
+        💡 API keys are managed exclusively in your root <code>.env</code> file. To update keys or models, edit <code>.env</code> and run <code>sync_env.bat</code>.
+      </p>
+    </div>
+
+    <form id="settingsForm">
+      <!-- Grounding and Rate Limit Options -->
       <div class="section">
         <div class="section-title">
-          <span>✨ Gemini Fact-Checker &amp; Grounding</span>
-          <span class="badge-secure">Local Storage Only</span>
+          <span>⚙️ Verification &amp; Grounding Options</span>
+          <span class="badge-secure">Saved Locally</span>
         </div>
 
         <div class="form-group">
-          <label for="geminiApiKey">Google Gemini API Key</label>
-          <div class="input-wrapper">
-            <input type="password" id="geminiApiKey" placeholder="AIzaSy..." autocomplete="off">
-            <button type="button" class="toggle-visibility" data-target="geminiApiKey" title="Show / Hide Key">👁</button>
-          </div>
-          <p class="hint">
-            Get a free key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
-          </p>
-        </div>
-
-        <div class="form-group">
-          <label for="geminiModel">Gemini Model</label>
-          <input type="text" id="geminiModel" value="gemini-3.6-flash" placeholder="gemini-3.6-flash">
-          <p class="hint">Default: <code>gemini-3.6-flash</code>.</p>
-        </div>
-
-        <div class="form-group" style="margin-top: 14px;">
           <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
             <input type="checkbox" id="enableSearchGrounding" checked style="width: 16px; height: 16px; accent-color: var(--primary);">
             <span>Enable Google Search Grounding</span>
           </label>
-          <p class="hint">Uncheck this if you hit Google AI Studio free tier quota limits (429) on grounding tools.</p>
+          <p class="hint">Grounds claim verification against live Google Search results. Uncheck if hitting quota limits on search tools.</p>
         </div>
 
         <div class="form-group" style="margin-top: 14px;">
@@ -305,11 +354,12 @@
       </div>
 
       <div class="footer-actions">
-        <button type="submit" class="btn-save" id="saveBtn">Save Settings</button>
+        <button type="submit" class="btn-save" id="saveBtn">Save Options</button>
       </div>
     </form>
   </div>
 
+  <script src="config.js"></script>
   <script src="options.js"></script>
 </body>
 </html>
